@@ -7,13 +7,11 @@ from urllib.parse import urlparse
 import re
 from playwright.sync_api import sync_playwright
 
-# ✅ Environment setup (remove if no longer needed)
-
 app = Flask(__name__)
 OUTPUT_DIR = "output"
 client = OpenAI()
 
-# ✅ AUTH USERS
+# ✅ Basic auth users
 AUTHORIZED_USERS = {
     "hebro": "Sambo12!",
     "friend": "hispassword456"
@@ -87,6 +85,7 @@ def view_thread(filename):
         content = f.read()
     return render_template("thread_viewer.html", thread=content)
 
+# ✅ Updated with logging
 def get_tweet_text_from_url(tweet_url):
     def _extract():
         with sync_playwright() as p:
@@ -94,13 +93,14 @@ def get_tweet_text_from_url(tweet_url):
             page = browser.new_page()
             try:
                 page.goto(tweet_url, timeout=15000)
-                page.wait_for_selector("article div[lang]", timeout=10000)
-                tweet_content = page.locator("article div[lang]").inner_text()
+                page.wait_for_selector("article", timeout=10000)
+                full_text = page.locator("article").inner_text()
+                print("🔍 Scraped tweet content:\n", full_text[:1000])
                 browser.close()
-                return tweet_content
+                return full_text
             except Exception as e:
+                print("❌ Error scraping tweet:", e)
                 browser.close()
-                print(f"Error scraping tweet: {e}")
                 return None
     return _extract()
 
