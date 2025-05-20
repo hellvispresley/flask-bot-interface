@@ -6,19 +6,20 @@ from openai import OpenAI
 from urllib.parse import urlparse
 import re
 
+# ✅ Add this before importing Playwright
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/mnt/data/playwright-browsers"
+
 from playwright.sync_api import sync_playwright
 
 app = Flask(__name__)
 OUTPUT_DIR = "output"
 client = OpenAI()
 
-# 🔐 Basic Auth Credentials
 AUTHORIZED_USERS = {
-    "hebro": "Sambo12!",
-    "dippin": "hispassword456"
+    "you": "supersecret123",
+    "friend": "hispassword456"
 }
 
-# 🔐 Authentication Check
 def check_auth(username, password):
     return username in AUTHORIZED_USERS and AUTHORIZED_USERS[username] == password
 
@@ -34,7 +35,7 @@ def require_auth(view_func):
         if not auth or not check_auth(auth.username, auth.password):
             return authenticate()
         return view_func(*args, **kwargs)
-    wrapper.__name__ = view_func.__name__  # Avoid Flask route issues
+    wrapper.__name__ = view_func.__name__
     return wrapper
 
 @app.route("/")
