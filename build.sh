@@ -3,7 +3,7 @@
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
 
-echo "Installing Playwright browsers..."
-npx playwright install chromium
+echo "Installing Playwright Chromium..."
+python -m playwright install chromium
 
 echo "✅ Build complete"
