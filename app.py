@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, Response
 import asyncio
 import os
 from scrape import scrape_trending_tweets, save_thread_to_file
@@ -12,28 +12,55 @@ app = Flask(__name__)
 OUTPUT_DIR = "output"
 client = OpenAI()
 
+# 🔐 Basic Auth Credentials
+AUTHORIZED_USERS = {
+    "hebro": "Sambo12!",
+    "dippin": "hispassword456"
+}
+
+# 🔐 Authentication Check
+def check_auth(username, password):
+    return username in AUTHORIZED_USERS and AUTHORIZED_USERS[username] == password
+
+def authenticate():
+    return Response(
+        "Authentication required", 401,
+        {"WWW-Authenticate": 'Basic realm="Login Required"'}
+    )
+
+def require_auth(view_func):
+    def wrapper(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return authenticate()
+        return view_func(*args, **kwargs)
+    wrapper.__name__ = view_func.__name__  # Avoid Flask route issues
+    return wrapper
+
 @app.route("/")
+@require_auth
 def index():
     return render_template("index.html")
 
 @app.route("/generate-thread", methods=["POST"])
+@require_auth
 def generate_thread():
     asyncio.run(scrape_trending_tweets())
     return redirect(url_for('view_threads'))
 
 @app.route("/engage", methods=["POST"])
+@require_auth
 def engage():
     tweet_url = request.form.get("tweet_url")
     persona = request.form.get("persona")
-
     tweet_text = get_tweet_text_from_url(tweet_url)
     if not tweet_text:
         return render_template("index.html", responses=["❌ Could not extract tweet content from the URL."])
-
     gpt_responses = generate_engagement_responses(tweet_text, persona)
     return render_template("index.html", responses=gpt_responses, selected_persona=persona)
 
 @app.route("/rephrase", methods=["POST"])
+@require_auth
 def rephrase():
     original_reply = request.form.get("original_reply")
     persona = request.form.get("persona")
@@ -41,6 +68,7 @@ def rephrase():
     return render_template("index.html", original_thread=rephrased)
 
 @app.route("/threads")
+@require_auth
 def view_threads():
     threads = []
     for foldername, _, filenames in os.walk(OUTPUT_DIR):
@@ -52,15 +80,13 @@ def view_threads():
     return render_template("threads.html", threads=threads)
 
 @app.route("/thread/<path:filename>")
+@require_auth
 def view_thread(filename):
     full_path = os.path.join(OUTPUT_DIR, filename)
     with open(full_path, encoding="utf-8") as f:
         content = f.read()
     return render_template("thread_viewer.html", thread=content)
 
-# -----------------------
-# Tweet content scraper
-# -----------------------
 def get_tweet_text_from_url(tweet_url):
     def _extract():
         with sync_playwright() as p:
@@ -68,7 +94,7 @@ def get_tweet_text_from_url(tweet_url):
             page = browser.new_page()
             try:
                 page.goto(tweet_url, timeout=15000)
-                page.wait_for_selector("article", timeout=10000)
+                page.wait_for_selector("article div[lang]", timeout=10000)
                 tweet_content = page.locator("article div[lang]").inner_text()
                 browser.close()
                 return tweet_content
@@ -78,13 +104,9 @@ def get_tweet_text_from_url(tweet_url):
                 return None
     return _extract()
 
-# -----------------------
-# Generate replies
-# -----------------------
 def generate_engagement_responses(tweet_text, persona):
     system_prompt = get_persona_prompt(persona) + "Your replies must be under 280 characters and punchy."
     user_prompt = f"""Write 3 different tweet replies under 280 characters each, in the voice of {persona}, responding to this tweet:\n\n"{tweet_text}"\n\nNumber each reply as 1, 2, and 3:"""
-
     try:
         response = client.chat.completions.create(
             model="gpt-4",
@@ -99,22 +121,16 @@ def generate_engagement_responses(tweet_text, persona):
         replies = re.findall(r"(?:^|\n)[123]\.\s*(.*)", raw_output)
         cleaned = [r.strip() for r in replies if len(r.strip()) <= 280]
         return cleaned if cleaned else [raw_output]
-
     except Exception as e:
         return [f"❌ GPT failed to generate responses: {e}"]
 
-# -----------------------
-# Convert reply into original content (thread-style)
-# -----------------------
 def generate_original_tweet_thread(reply_text, persona):
     system_prompt = get_persona_prompt(persona) + (
         "You are now repackaging a tweet reply as an original viral thread. "
         "Write 2–3 posts max, each under 280 characters, in the same voice. Include emojis or 🔥 punchy hooks. "
         "Avoid mentioning it's a reply or referring to another tweet."
     )
-
     user_prompt = f"""Rewrite the following as a standalone tweet thread (2-3 posts). Keep each post under 280 characters:\n\n"{reply_text}"\n\nFormat:\nPost 1:\nPost 2:\n(Post 3 if needed)"""
-
     try:
         response = client.chat.completions.create(
             model="gpt-4",
@@ -128,13 +144,9 @@ def generate_original_tweet_thread(reply_text, persona):
         output = response.choices[0].message.content.strip()
         posts = re.findall(r"Post \d+:\s*(.*)", output)
         return [p.strip() for p in posts if len(p.strip()) <= 280]
-
     except Exception as e:
         return [f"❌ GPT failed to rephrase: {e}"]
 
-# -----------------------
-# Persona setup
-# -----------------------
 def get_persona_prompt(persona):
     if persona == "RighteousRyght":
         return (
