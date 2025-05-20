@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, Response
 import asyncio
 import os
+import sys
 from scrape import scrape_trending_tweets, save_thread_to_file
 from openai import OpenAI
 from urllib.parse import urlparse
@@ -11,7 +12,6 @@ app = Flask(__name__)
 OUTPUT_DIR = "output"
 client = OpenAI()
 
-# ✅ Basic auth users
 AUTHORIZED_USERS = {
     "hebro": "Sambo12!",
     "friend": "hispassword456"
@@ -85,7 +85,6 @@ def view_thread(filename):
         content = f.read()
     return render_template("thread_viewer.html", thread=content)
 
-# ✅ Updated with logging
 def get_tweet_text_from_url(tweet_url):
     def _extract():
         with sync_playwright() as p:
@@ -96,10 +95,12 @@ def get_tweet_text_from_url(tweet_url):
                 page.wait_for_selector("article", timeout=10000)
                 full_text = page.locator("article").inner_text()
                 print("🔍 Scraped tweet content:\n", full_text[:1000])
+                sys.stdout.flush()
                 browser.close()
                 return full_text
             except Exception as e:
                 print("❌ Error scraping tweet:", e)
+                sys.stdout.flush()
                 browser.close()
                 return None
     return _extract()
