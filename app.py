@@ -85,15 +85,19 @@ def view_thread(filename):
         content = f.read()
     return render_template("thread_viewer.html", thread=content)
 
+# ✅ Improved tweet selector + extended timeout
 def get_tweet_text_from_url(tweet_url):
     def _extract():
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox"]
+            )
             page = browser.new_page()
             try:
-                page.goto(tweet_url, timeout=15000)
-                page.wait_for_selector("article", timeout=10000)
-                full_text = page.locator("article").inner_text()
+                page.goto(tweet_url, timeout=20000)
+                page.wait_for_selector("article div[lang]", timeout=20000)
+                full_text = page.locator("article div[lang]").inner_text()
                 print("🔍 Scraped tweet content:\n", full_text[:1000])
                 sys.stdout.flush()
                 browser.close()
