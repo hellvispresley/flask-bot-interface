@@ -112,7 +112,7 @@ Post 4:
 # Scrape tweets from trending topic and generate thread
 async def scrape_trending_tweets():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
         page = await context.new_page()
 
