@@ -3,7 +3,10 @@
 echo "✅ Installing Python dependencies..."
 pip install -r requirements.txt
 
-echo "✅ Installing Playwright browser dependencies..."
-python -m playwright install chromium
+echo "✅ Installing Playwright browser (verbose)..."
+DEBUG=pw:install python -m playwright install chromium || {
+  echo "❌ Chromium install failed!"
+  exit 1
+}
 
-echo "✅ Build finished. Chromium should be ready."
+echo "✅ Build finished. Chromium installed successfully."
