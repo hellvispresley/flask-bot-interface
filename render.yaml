@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: rr-bot
+    runtime: python
+    buildCommand: |
+      pip install -r requirements.txt
+      playwright install chromium
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: /mnt/data/playwright-browsers
