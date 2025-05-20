@@ -7,4 +7,5 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
 
-CMD ["gunicorn", "-b", "0.0.0.0:10000", "app:app"]
+
+CMD ["gunicorn", "-b", "0.0.0.0:10000", "--timeout", "90", "app:app"]

@@ -90,9 +90,15 @@ def get_tweet_text_from_url(tweet_url):
     def _extract():
         with sync_playwright() as p:
             browser = p.chromium.launch(
-                headless=True,
-                args=["--no-sandbox", "--disable-setuid-sandbox"]
-            )
+    headless=True,
+    args=[
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--disable-gpu"
+    ]
+)
             page = browser.new_page()
             try:
                 page.goto(tweet_url, timeout=20000)
