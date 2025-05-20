@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, Response
 import asyncio
 import os
 import sys
+import requests
 from scrape import scrape_trending_tweets, save_thread_to_file
 from openai import OpenAI
 from urllib.parse import urlparse
@@ -85,35 +86,58 @@ def view_thread(filename):
         content = f.read()
     return render_template("thread_viewer.html", thread=content)
 
-# ✅ Improved tweet selector + extended timeout
+# ✅ Updated: Chromium first, fallback to oEmbed
 def get_tweet_text_from_url(tweet_url):
-    def _extract():
+    def _extract_with_playwright():
         with sync_playwright() as p:
             browser = p.chromium.launch(
-    headless=True,
-    args=[
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--disable-gpu"
-    ]
-)
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-accelerated-2d-canvas",
+                    "--disable-gpu"
+                ]
+            )
             page = browser.new_page()
             try:
                 page.goto(tweet_url, timeout=20000)
                 page.wait_for_selector("article div[lang]", timeout=20000)
                 full_text = page.locator("article div[lang]").inner_text()
-                print("🔍 Scraped tweet content:\n", full_text[:1000])
+                print("🔍 Chromium scrape success:\n", full_text[:1000])
                 sys.stdout.flush()
                 browser.close()
                 return full_text
             except Exception as e:
-                print("❌ Error scraping tweet:", e)
+                print("❌ Chromium scrape failed:", e)
                 sys.stdout.flush()
                 browser.close()
                 return None
-    return _extract()
+
+    def _extract_with_oembed():
+        try:
+            res = requests.get(
+                "https://publish.twitter.com/oembed",
+                params={"url": tweet_url},
+                timeout=10
+            )
+            if res.status_code == 200:
+                html = res.json().get("html", "")
+                # crude extraction: grab content between > and < inside blockquote
+                matches = re.findall(r"<p.*?>(.*?)</p>", html)
+                text = re.sub(r"<.*?>", "", " ".join(matches)).strip()
+                print("🟡 Fallback oEmbed success:\n", text[:1000])
+                sys.stdout.flush()
+                return text if text else None
+        except Exception as e:
+            print("❌ oEmbed fallback failed:", e)
+            sys.stdout.flush()
+            return None
+
+    # Try Chromium first, fallback to oEmbed
+    result = _extract_with_playwright()
+    return result or _extract_with_oembed()
 
 def generate_engagement_responses(tweet_text, persona):
     system_prompt = get_persona_prompt(persona) + "Your replies must be under 280 characters and punchy."
