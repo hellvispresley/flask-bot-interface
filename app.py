@@ -5,16 +5,16 @@ from scrape import scrape_trending_tweets, save_thread_to_file
 from openai import OpenAI
 from urllib.parse import urlparse
 import re
-
-# ✅ Add this before importing Playwright
-# os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/mnt/data/playwright-browsers"
-
 from playwright.sync_api import sync_playwright
+
+# ✅ Environment setup (remove if no longer needed)
+# os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/mnt/data/playwright-browsers"
 
 app = Flask(__name__)
 OUTPUT_DIR = "output"
 client = OpenAI()
 
+# ✅ AUTH USERS
 AUTHORIZED_USERS = {
     "hebro": "Sambo12!",
     "friend": "hispassword456"
