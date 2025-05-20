@@ -16,7 +16,7 @@ OUTPUT_DIR = "output"
 client = OpenAI()
 
 AUTHORIZED_USERS = {
-    "you": "supersecret123",
+    "hebro": "Sambo12!",
     "friend": "hispassword456"
 }
 
