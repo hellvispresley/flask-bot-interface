@@ -1,0 +1,16 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Saved Threads</title>
+</head>
+<body>
+    <h1>📁 Saved Threads</h1>
+    <ul>
+    {% for thread in threads %}
+        <li><a href="{{ url_for('view_thread', filename=thread) }}">{{ thread }}</a></li>
+    {% endfor %}
+    </ul>
+    <a href="/">⬅️ Back</a>
+</body>
+</html>
