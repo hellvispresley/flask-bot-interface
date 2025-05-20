@@ -8,7 +8,6 @@ import re
 from playwright.sync_api import sync_playwright
 
 # ✅ Environment setup (remove if no longer needed)
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/tmp/playwright"
 
 app = Flask(__name__)
 OUTPUT_DIR = "output"
