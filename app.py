@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 import re
 
 # ✅ Add this before importing Playwright
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/mnt/data/playwright-browsers"
+# os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/mnt/data/playwright-browsers"
 
 from playwright.sync_api import sync_playwright
 
