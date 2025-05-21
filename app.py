@@ -1,107 +1,64 @@
-from flask import Flask, render_template, request, redirect, url_for, Response
-import asyncio
-import os
+from flask import Flask, render_template, request, jsonify
+from openai import OpenAI
+import random
 import sys
 import requests
-from scrape import scrape_trending_tweets, save_thread_to_file
-from openai import OpenAI
-from urllib.parse import urlparse
 import re
 from playwright.sync_api import sync_playwright
 
 app = Flask(__name__)
-OUTPUT_DIR = "output"
 client = OpenAI()
 
-AUTHORIZED_USERS = {
-    "hebro": "Sambo12!",
-    "friend": "hispassword456"
-}
+# Dummy tweets for placeholder behavior
+sample_tweets = [
+    "Just had the best coffee ever!",
+    "Can't believe how sunny it is today.",
+    "Reading a fascinating book on AI.",
+    "Workout completed. Feeling great!",
+    "Cooking a new recipe tonight."
+]
 
-def check_auth(username, password):
-    return username in AUTHORIZED_USERS and AUTHORIZED_USERS[username] == password
-
-def authenticate():
-    return Response(
-        "Authentication required", 401,
-        {"WWW-Authenticate": 'Basic realm="Login Required"'}
-    )
-
-def require_auth(view_func):
-    def wrapper(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not check_auth(auth.username, auth.password):
-            return authenticate()
-        return view_func(*args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
+# ---- Primary routes ---- #
 
 @app.route("/")
-@require_auth
 def index():
     return render_template("index.html")
 
-@app.route("/generate-thread", methods=["POST"])
-@require_auth
-def generate_thread():
-    asyncio.run(scrape_trending_tweets())
-    return redirect(url_for('view_threads'))
+@app.route("/api/generate", methods=["POST"])
+def generate_tweet():
+    # TODO: Replace with GPT-based generation later
+    tweet = random.choice(sample_tweets)
+    return jsonify({"tweet": tweet})
 
-@app.route("/engage", methods=["POST"])
-@require_auth
-def engage():
-    tweet_url = request.form.get("tweet_url")
-    persona = request.form.get("persona")
+@app.route("/api/engage", methods=["POST"])
+def engage_tweet():
+    data = request.get_json()
+    tweet_url = data.get("url")
+    persona = data.get("persona")  # <== include this if you want GPT persona behavior
+
     tweet_text = get_tweet_text_from_url(tweet_url)
     if not tweet_text:
-        return render_template("index.html", responses=["❌ Could not extract tweet content from the URL."])
-    gpt_responses = generate_engagement_responses(tweet_text, persona)
-    return render_template("index.html", responses=gpt_responses, selected_persona=persona)
+        return jsonify({"tweet": "❌ Could not extract tweet content from the URL."})
 
-@app.route("/rephrase", methods=["POST"])
-@require_auth
-def rephrase():
-    original_reply = request.form.get("original_reply")
-    persona = request.form.get("persona")
-    rephrased = generate_original_tweet_thread(original_reply, persona)
-    return render_template("index.html", original_thread=rephrased)
+    response = f"{persona or 'Someone'} engaging with: {tweet_text[:200]}..."
+    return jsonify({"tweet": response})
+# ---- Tweet extraction with fallback ---- #
 
-@app.route("/threads")
-@require_auth
-def view_threads():
-    threads = []
-    for foldername, _, filenames in os.walk(OUTPUT_DIR):
-        for filename in filenames:
-            if filename.endswith(".txt"):
-                rel_path = os.path.join(foldername, filename).replace("\\", "/")
-                threads.append(rel_path[len(OUTPUT_DIR)+1:])
-    threads.sort(reverse=True)
-    return render_template("threads.html", threads=threads)
-
-@app.route("/thread/<path:filename>")
-@require_auth
-def view_thread(filename):
-    full_path = os.path.join(OUTPUT_DIR, filename)
-    with open(full_path, encoding="utf-8") as f:
-        content = f.read()
-    return render_template("thread_viewer.html", thread=content)
-
-# ✅ Updated: Chromium first, fallback to oEmbed
 def get_tweet_text_from_url(tweet_url):
     def _extract_with_playwright():
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-accelerated-2d-canvas",
-                    "--disable-gpu"
-                ]
-            )
-            page = browser.new_page()
-            try:
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-accelerated-2d-canvas",
+                        "--disable-gpu"
+                    ]
+                )
+                page = browser.new_page()
                 page.goto(tweet_url, timeout=20000)
                 page.wait_for_selector("article div[lang]", timeout=20000)
                 full_text = page.locator("article div[lang]").inner_text()
@@ -109,11 +66,10 @@ def get_tweet_text_from_url(tweet_url):
                 sys.stdout.flush()
                 browser.close()
                 return full_text
-            except Exception as e:
-                print("❌ Chromium scrape failed:", e)
-                sys.stdout.flush()
-                browser.close()
-                return None
+        except Exception as e:
+            print("❌ Chromium scrape failed:", e)
+            sys.stdout.flush()
+            return None
 
     def _extract_with_oembed():
         try:
@@ -124,7 +80,6 @@ def get_tweet_text_from_url(tweet_url):
             )
             if res.status_code == 200:
                 html = res.json().get("html", "")
-                # crude extraction: grab content between > and < inside blockquote
                 matches = re.findall(r"<p.*?>(.*?)</p>", html)
                 text = re.sub(r"<.*?>", "", " ".join(matches)).strip()
                 print("🟡 Fallback oEmbed success:\n", text[:1000])
@@ -135,72 +90,7 @@ def get_tweet_text_from_url(tweet_url):
             sys.stdout.flush()
             return None
 
-    # Try Chromium first, fallback to oEmbed
-    result = _extract_with_playwright()
-    return result or _extract_with_oembed()
-
-def generate_engagement_responses(tweet_text, persona):
-    system_prompt = get_persona_prompt(persona) + "Your replies must be under 280 characters and punchy."
-    user_prompt = f"""Write 3 different tweet replies under 280 characters each, in the voice of {persona}, responding to this tweet:\n\n"{tweet_text}"\n\nNumber each reply as 1, 2, and 3:"""
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.85,
-            max_tokens=800
-        )
-        raw_output = response.choices[0].message.content.strip()
-        replies = re.findall(r"(?:^|\n)[123]\.\s*(.*)", raw_output)
-        cleaned = [r.strip() for r in replies if len(r.strip()) <= 280]
-        return cleaned if cleaned else [raw_output]
-    except Exception as e:
-        return [f"❌ GPT failed to generate responses: {e}"]
-
-def generate_original_tweet_thread(reply_text, persona):
-    system_prompt = get_persona_prompt(persona) + (
-        "You are now repackaging a tweet reply as an original viral thread. "
-        "Write 2–3 posts max, each under 280 characters, in the same voice. Include emojis or 🔥 punchy hooks. "
-        "Avoid mentioning it's a reply or referring to another tweet."
-    )
-    user_prompt = f"""Rewrite the following as a standalone tweet thread (2-3 posts). Keep each post under 280 characters:\n\n"{reply_text}"\n\nFormat:\nPost 1:\nPost 2:\n(Post 3 if needed)"""
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.85,
-            max_tokens=800
-        )
-        output = response.choices[0].message.content.strip()
-        posts = re.findall(r"Post \d+:\s*(.*)", output)
-        return [p.strip() for p in posts if len(p.strip()) <= 280]
-    except Exception as e:
-        return [f"❌ GPT failed to rephrase: {e}"]
-
-def get_persona_prompt(persona):
-    if persona == "RighteousRyght":
-        return (
-            "You are RighteousRyght, a hard-right political commentator. Father, Patriot, Christian. "
-            "You mock mainstream narratives, expose 'hidden agendas,' and write with sarcasm, fury, and confidence. "
-            "You often tie in conspiracy theories and viral hooks. "
-        )
-    elif persona == "CentristStan":
-        return (
-            "You are CentristStan, a neutral, logical, and fact-driven responder. "
-            "You avoid drama and calmly explain alternative views. "
-        )
-    elif persona == "LeftyLoretta":
-        return (
-            "You are LeftyLoretta, a progressive activist and satirist. Cat mom, Anarchist and anti-establishment. "
-            "Pro-LGBTQ+ and Gender Fluid Supporter. If they don't agree with you they are probably racist nazis. "
-            "You respond with wit, passion, and left-leaning social commentary. "
-        )
-    return ""
+    return _extract_with_playwright() or _extract_with_oembed()
 
 if __name__ == "__main__":
     app.run(debug=True)
