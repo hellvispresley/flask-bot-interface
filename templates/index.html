@@ -66,6 +66,7 @@
         }
 
         function generateTweet() {
+            console.log("Generating new tweet...");
             fetch('/api/generate', {
                 method: 'POST'
             })
@@ -79,12 +80,17 @@
                         <br><small>${length} characters</small><br>
                         <button class="copy-button" onclick="copyToClipboard(\`${tweet}\`)">📋 Copy</button>
                     </div>`;
+            })
+            .catch(err => {
+                console.error("❌ Generate fetch error:", err);
+                alert("❌ Could not generate tweet — server may be down.");
             });
         }
 
         function engageTweet() {
             const url = document.getElementById('tweetUrl').value;
             const persona = document.getElementById('persona').value;
+            console.log("Engage request:", { url, persona });
 
             fetch('/api/engage', {
                 method: 'POST',
@@ -101,6 +107,10 @@
                         <br><small>${length} characters</small><br>
                         <button class="copy-button" onclick="copyToClipboard(\`${tweet}\`)">📋 Copy</button>
                     </div>`;
+            })
+            .catch(err => {
+                console.error("❌ Engage fetch error:", err);
+                alert("❌ Could not fetch engagement — check the server.");
             });
         }
     </script>
