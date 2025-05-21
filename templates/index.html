@@ -53,12 +53,19 @@
     </div>
 
     <script>
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(function() {
-                alert("Copied to clipboard!");
-            }, function(err) {
-                alert("Failed to copy: " + err);
+        function copyToClipboard(text, buttonElement) {
+            navigator.clipboard.writeText(text).then(() => {
+                buttonElement.innerText = "✅ Copied!";
+                setTimeout(() => {
+                    buttonElement.innerText = "📋 Copy";
+                }, 1500);
+            }).catch(err => {
+                alert("❌ Failed to copy: " + err);
             });
+        }
+
+        function escapeForAttribute(str) {
+            return str.replace(/'/g, "\\'").replace(/"/g, "&quot;");
         }
 
         function generateTweet() {
@@ -71,7 +78,7 @@
                     `<div class="response-box">
                         ${tweet}
                         <br><small>${length} characters</small><br>
-                        <button class="copy-button" onclick="copyToClipboard(\`${tweet}\`)">📋 Copy</button>
+                        <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
                     </div>`;
             })
             .catch(err => {
@@ -99,7 +106,7 @@
                     return `<div class="response-box">
                         ${tweet}
                         <br><small>${length} characters</small><br>
-                        <button class="copy-button" onclick="copyToClipboard(\`${tweet}\`)">📋 Copy</button>
+                        <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
                     </div>`;
                 }).join('');
             })
