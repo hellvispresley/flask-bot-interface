@@ -36,7 +36,6 @@ def engage_tweet():
     if not tweet_text:
         return jsonify({"replies": ["❌ Could not extract tweet content from the URL."]})
 
-    # Generate GPT replies
     system_prompt = get_persona_prompt(persona)
     user_prompt = f"""Write 3 tweet replies (280 characters max each) in the voice of {persona}, responding to:\n\n"{tweet_text}"\n\nNumber them 1, 2, and 3."""
 
@@ -55,6 +54,34 @@ def engage_tweet():
         return jsonify({"replies": replies})
     except Exception as e:
         return jsonify({"replies": [f"❌ GPT error: {e}"]})
+
+@app.route("/api/generate-similar", methods=["POST"])
+def generate_similar():
+    data = request.get_json()
+    original = data.get("text", "")
+    persona = data.get("persona", "RighteousRyght")
+
+    if not original:
+        return jsonify({"tweet": "❌ No seed text provided."})
+
+    system_prompt = get_persona_prompt(persona)
+    user_prompt = f"""Create a tweet inspired by the following:\n\n"{original}"\n\nIt should be original, punchy, under 280 characters, and clearly written in the voice of {persona}."""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.85,
+            max_tokens=300
+        )
+        tweet = response.choices[0].message.content.strip()
+        return jsonify({"tweet": tweet})
+    except Exception as e:
+        return jsonify({"tweet": f"❌ GPT error: {e}"})
+
 
 @app.route("/api/trending", methods=["GET"])
 def fetch_trending():
@@ -122,13 +149,10 @@ def get_tweet_text_from_url(tweet_url):
                 page.goto(tweet_url, timeout=20000)
                 page.wait_for_selector("article div[lang]", timeout=20000)
                 full_text = page.locator("article div[lang]").inner_text()
-                print("🔍 Chromium scrape success:\n", full_text[:1000])
-                sys.stdout.flush()
                 browser.close()
                 return full_text
         except Exception as e:
             print("❌ Chromium scrape failed:", e)
-            sys.stdout.flush()
             return None
 
     def _extract_with_oembed():
@@ -142,12 +166,9 @@ def get_tweet_text_from_url(tweet_url):
                 html = res.json().get("html", "")
                 matches = re.findall(r"<p.*?>(.*?)</p>", html)
                 text = re.sub(r"<.*?>", "", " ".join(matches)).strip()
-                print("🟡 Fallback oEmbed success:\n", text[:1000])
-                sys.stdout.flush()
                 return text if text else None
         except Exception as e:
             print("❌ oEmbed fallback failed:", e)
-            sys.stdout.flush()
             return None
 
     return _extract_with_playwright() or _extract_with_oembed()

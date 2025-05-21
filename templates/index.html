@@ -161,8 +161,31 @@
         }
 
         function generateSimilar(text) {
-            alert("🚧 Generate Similar functionality coming soon!\n\nSeed: " + text);
-        }
+    const persona = document.getElementById('persona').value;
+    const container = document.getElementById('generatedResult');
+    container.innerHTML = `<div class="response-box">⏳ Generating similar tweet...</div>`;
+
+    fetch('/api/generate-similar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, persona })
+    })
+    .then(res => res.json())
+    .then(data => {
+        const tweet = data.tweet || "❌ No tweet generated.";
+        const length = tweet.length;
+        container.innerHTML = `
+            <div class="response-box">
+                ${tweet}
+                <br><small>${length} characters</small><br>
+                <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
+            </div>`;
+    })
+    .catch(err => {
+        console.error("❌ Generate Similar error:", err);
+        container.innerHTML = `<div class="response-box">❌ Error generating similar tweet.</div>`;
+    });
+}
     </script>
 </body>
 </html>
