@@ -17,8 +17,9 @@
             background-color: #2c2c2c;
             white-space: pre-wrap;
         }
-        .copy-button, .btn {
+        .copy-button, .btn, .tweet-action {
             margin-top: 5px;
+            margin-right: 5px;
             padding: 6px 12px;
             background-color: #cc0000;
             color: white;
@@ -28,6 +29,13 @@
         input, select {
             padding: 6px;
             margin-right: 5px;
+        }
+        .trending-card {
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 6px;
         }
     </style>
 </head>
@@ -50,6 +58,13 @@
         </select>
         <button class="btn" onclick="engageTweet()">💥 Engage</button>
         <div id="engageResult"></div>
+    </div>
+
+    <!-- Trending Tweets -->
+    <div style="margin-top: 50px;">
+        <h2>📈 Trending Tweets</h2>
+        <button class="btn" onclick="loadTrending()">🔍 Load Trending Tweets</button>
+        <div id="trendingList" style="margin-top: 20px;"></div>
     </div>
 
     <script>
@@ -114,6 +129,42 @@
                 console.error("❌ Engage fetch error:", err);
                 alert("❌ Could not fetch engagement.");
             });
+        }
+
+        function loadTrending() {
+            const placeholderTweets = [
+                { text: "BREAKING: Huge development in the AI world today...", url: "https://twitter.com/example/1" },
+                { text: "People are losing it over this video 😳", url: "https://twitter.com/example/2" },
+                { text: "Elon just did WHAT with Twitter again?", url: "https://twitter.com/example/3" },
+                { text: "🔥 This thread is going viral fast. Here's why:", url: "https://twitter.com/example/4" },
+                { text: "Something major just dropped on the Supreme Court docket.", url: "https://twitter.com/example/5" },
+                { text: "Tucker just exposed everything in under 60 seconds.", url: "https://twitter.com/example/6" },
+                { text: "This chart explains everything. Seriously.", url: "https://twitter.com/example/7" },
+                { text: "How is this not front-page news??", url: "https://twitter.com/example/8" },
+                { text: "She called out the entire system in this one tweet 💥", url: "https://twitter.com/example/9" },
+                { text: "This is what they don't want you to know 👇", url: "https://twitter.com/example/10" }
+            ];
+
+            const container = document.getElementById('trendingList');
+            container.innerHTML = placeholderTweets.map((tweet, index) => `
+                <div class="trending-card">
+                    <strong>#${index + 1}</strong><br>
+                    <p>${tweet.text}</p>
+                    <button class="tweet-action" onclick="window.open('${tweet.url}', '_blank')">🔗 Open Tweet</button>
+                    <button class="tweet-action" onclick="engageFromTrending('${tweet.url}')">💥 Engage</button>
+                    <button class="tweet-action" onclick="generateSimilar('${tweet.text}')">🧠 Generate Similar</button>
+                </div>
+            `).join('');
+        }
+
+        function engageFromTrending(url) {
+            document.getElementById('tweetUrl').value = url;
+            engageTweet();
+        }
+
+        function generateSimilar(text) {
+            alert("🚧 Generate Similar functionality coming soon!\n\nSeed: " + text);
+            // In future: send this text to GPT with a persona prompt to create a new tweet
         }
     </script>
 </body>
