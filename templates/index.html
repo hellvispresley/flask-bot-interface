@@ -37,6 +37,12 @@
             margin-bottom: 12px;
             border-radius: 6px;
         }
+        #draftContainer {
+            margin-top: 40px;
+            padding: 15px;
+            border: 1px solid #444;
+            background-color: #2a2a2a;
+        }
     </style>
 </head>
 <body>
@@ -63,6 +69,13 @@
         <h2>📈 Trending Tweets</h2>
         <button class="btn" onclick="loadTrending()">🔍 Load Trending Tweets</button>
         <div id="trendingList" style="margin-top: 20px;"></div>
+    </div>
+
+    <div id="draftContainer">
+        <h2>📄 Saved Drafts</h2>
+        <p>You can save up to 25 drafts. The oldest will be removed automatically.</p>
+        <button class="btn" onclick="loadDrafts()">🔄 Refresh</button>
+        <div id="draftList"></div>
     </div>
 
     <script>
@@ -97,6 +110,7 @@
                             ${tweet}
                             <br><small>${length} characters</small><br>
                             <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
+                            <button class="btn" onclick="saveDraft('${escapeForAttribute(tweet)}')">💾 Save Draft</button>
                         </div>`;
                 });
         }
@@ -121,6 +135,7 @@
                         ${tweet}
                         <br><small>${length} characters</small><br>
                         <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
+                        <button class="btn" onclick="saveDraft('${escapeForAttribute(tweet)}')">💾 Save Draft</button>
                     </div>`;
                 }).join('');
             });
@@ -131,7 +146,7 @@
             container.innerHTML = `<div class="response-box">⏳ Fetching live trending tweets...</div>`;
 
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 15000); // 15s max
+            const timeout = setTimeout(() => controller.abort(), 15000);
 
             fetch('/api/trending', { signal: controller.signal })
                 .then(res => res.json())
@@ -141,7 +156,6 @@
                         container.innerHTML = `<div class="response-box">❌ No trending tweets found.</div>`;
                         return;
                     }
-
                     container.innerHTML = data.tweets.map((tweet, index) => {
                         const escapedText = tweet.text.replace(/'/g, "\\'").replace(/"/g, "&quot;");
                         return `
@@ -151,6 +165,7 @@
                                 <button class="btn" onclick="window.open('${tweet.url}', '_blank')">🔗 Open Tweet</button>
                                 <button class="btn" onclick="engageFromTrending('${tweet.url}')">💥 Engage</button>
                                 <button class="btn" onclick="generateSimilar('${escapedText}')">🧠 Generate Similar</button>
+                                <button class="btn" onclick="saveDraft('${escapedText}')">💾 Save Draft</button>
                             </div>`;
                     }).join('');
                 })
@@ -184,12 +199,75 @@
                         ${tweet}
                         <br><small>${length} characters</small><br>
                         <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
+                        <button class="btn" onclick="saveDraft('${escapeForAttribute(tweet)}')">💾 Save Draft</button>
                     </div>`;
             })
             .catch(err => {
                 container.innerHTML = `<div class="response-box">❌ Error generating tweet. Please try again.</div>`;
             });
         }
+
+        function saveDraft(text) {
+            fetch('/api/draft/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    loadDrafts();
+                } else {
+                    alert("❌ Failed to save draft.");
+                }
+            });
+        }
+
+        function loadDrafts() {
+            const container = document.getElementById('draftList');
+            container.innerHTML = `<div class="response-box">Loading drafts...</div>`;
+            fetch('/api/drafts')
+                .then(res => res.json())
+                .then(data => {
+                    const drafts = data.drafts || [];
+                    if (drafts.length === 0) {
+                        container.innerHTML = `<div class="response-box">No drafts saved yet.</div>`;
+                        return;
+                    }
+                    container.innerHTML = drafts.map((d, i) => `
+                        <div class="response-box">
+                            ${d.text}
+                            <br><small>${new Date(d.timestamp).toLocaleString()}</small><br>
+                            <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(d.text)}', this)">📋 Copy</button>
+                            <button class="btn" onclick="loadDraftIntoGenerator('${escapeForAttribute(d.text)}')">📝 Load</button>
+                            <button class="btn" onclick="deleteDraft(${i})">🗑️ Delete</button>
+                        </div>
+                    `).join('');
+                });
+        }
+
+        function loadDraftIntoGenerator(text) {
+            document.getElementById('generatedResult').innerHTML = `
+                <div class="response-box">
+                    ${text}
+                    <br><small>${text.length} characters</small><br>
+                    <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(text)}', this)">📋 Copy</button>
+                    <button class="btn" onclick="saveDraft('${escapeForAttribute(text)}')">💾 Save Draft</button>
+                </div>`;
+        }
+
+        function deleteDraft(index) {
+            fetch('/api/draft/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ index })
+            })
+            .then(res => res.json())
+            .then(() => loadDrafts());
+        }
+
+        // Load on page load
+        window.onload = loadDrafts;
     </script>
 </body>
 </html>
