@@ -56,6 +56,45 @@ def engage_tweet():
     except Exception as e:
         return jsonify({"replies": [f"❌ GPT error: {e}"]})
 
+@app.route("/api/trending", methods=["GET"])
+def fetch_trending():
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage"
+                ]
+            )
+            page = browser.new_page()
+            page.goto("https://twitter.com/explore/tabs/trending", timeout=20000)
+            page.wait_for_selector("article", timeout=10000)
+
+            tweets = page.query_selector_all("article")
+            results = []
+
+            for tweet in tweets[:20]:
+                try:
+                    text = tweet.inner_text()
+                    url_node = tweet.query_selector("a[href*='/status/']")
+                    link = url_node.get_attribute("href") if url_node else None
+                    if text and link:
+                        results.append({
+                            "text": text.split("\n")[0][:280],
+                            "url": f"https://twitter.com{link}"
+                        })
+                except Exception as e:
+                    print("⚠️ Skipping tweet due to error:", e)
+                    continue
+
+            browser.close()
+            return jsonify({"tweets": results[:10]})
+    except Exception as e:
+        print("❌ Trending scrape failed:", e)
+        return jsonify({"error": str(e)})
+
 def get_persona_prompt(persona):
     if persona == "RighteousRyght":
         return "You are RighteousRyght, a hard-right political commentator. Write fiery, sarcastic, punchy conservative takes."
