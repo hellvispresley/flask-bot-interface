@@ -3,6 +3,59 @@
 <head>
     <title>RighteousRyght Bot Interface</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #1c1c1c;
+            color: #eee;
+            padding: 20px;
+        }
+        .response-box {
+            border: 1px solid #555;
+            padding: 10px;
+            margin: 15px 0;
+            background-color: #2c2c2c;
+            white-space: pre-wrap;
+        }
+        .copy-button, .original-button, .btn {
+            margin-top: 5px;
+            padding: 6px 12px;
+            background-color: #cc0000;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        input, select {
+            padding: 6px;
+            margin-right: 5px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔥 RighteousRyght Bot</h1>
+
+    <!-- Generate a new tweet -->
+    <div>
+        <button class="btn" onclick="generateTweet()">🧠 Generate New Tweet</button>
+        <div id="generatedResult"></div>
+    </div>
+
+    <!-- Engage with a tweet -->
+    <div style="margin-top: 30px;">
+        <input type="text" id="tweetUrl" placeholder="Paste tweet URL to engage">
+        <select id="persona">
+            <option value="RighteousRyght">RighteousRyght (Aggressive Conservative)</option>
+            <option value="CentristStan">CentristStan (Neutral and Factual)</option>
+            <option value="LeftyLoretta">LeftyLoretta (Progressive Satirist)</option>
+        </select>
+        <button class="btn" onclick="engageTweet()">💥 Engage</button>
+        <div id="engageResult"></div>
+    </div>
+
     <script>
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(function() {
@@ -11,73 +64,41 @@
                 alert("Failed to copy: " + err);
             });
         }
+
+        function generateTweet() {
+            fetch('/api/generate', {
+                method: 'POST'
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('generatedResult').innerHTML =
+                    `<div class="response-box">
+                        ${data.tweet}
+                        <br><small>${data.tweet.length} characters</small><br>
+                        <button class="copy-button" onclick="copyToClipboard(\`${data.tweet}\`)">📋 Copy</button>
+                    </div>`;
+            });
+        }
+
+        function engageTweet() {
+            const url = document.getElementById('tweetUrl').value;
+            const persona = document.getElementById('persona').value;
+
+            fetch('/api/engage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, persona })
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('engageResult').innerHTML =
+                    `<div class="response-box">
+                        ${data.tweet}
+                        <br><small>${data.tweet.length} characters</small><br>
+                        <button class="copy-button" onclick="copyToClipboard(\`${data.tweet}\`)">📋 Copy</button>
+                    </div>`;
+            });
+        }
     </script>
-    <style>
-        .response-box {
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin: 15px 0;
-            background-color: #f0f0f0;
-            white-space: pre-wrap;
-        }
-        .copy-button, .original-button {
-            margin-top: 5px;
-            padding: 6px 12px;
-            background-color: #cc0000;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-    </style>
-</head>
-<body>
-    <h1>🔥 RighteousRyght Bot</h1>
-
-    <!-- Generate Thread -->
-    <form action="/generate-thread" method="post">
-        <button type="submit">Generate New Thread</button>
-    </form>
-
-    <!-- Engage with a Tweet -->
-    <form action="/engage" method="post" style="margin-top: 20px;">
-        <input type="text" name="tweet_url" placeholder="Paste tweet URL to engage" required>
-        <select name="persona" required>
-            <option value="RighteousRyght">RighteousRyght (Aggressive Conservative)</option>
-            <option value="CentristStan">CentristStan (Neutral and Factual)</option>
-            <option value="LeftyLoretta">LeftyLoretta (Progressive Satirist)</option>
-        </select>
-        <button type="submit">Engage</button>
-    </form>
-
-    {% if responses %}
-        <h3>🧠 Generated Replies (280 characters max):</h3>
-        {% for r in responses %}
-            <div class="response-box">
-                {{ r }}
-                <br>
-                <small>{{ r|length }} characters</small><br>
-                <button class="copy-button" onclick="copyToClipboard(`{{ r | replace('`', '\\`') }}`)">📋 Copy</button>
-                <form action="/rephrase" method="post" style="display:inline;">
-                    <input type="hidden" name="original_reply" value="{{ r }}">
-                    <input type="hidden" name="persona" value="{{ selected_persona }}">
-                    <button class="original-button" type="submit">🪄 Turn Into Original Tweet</button>
-                </form>
-            </div>
-        {% endfor %}
-    {% endif %}
-
-    {% if original_thread %}
-        <h3>🧵 Original Thread:</h3>
-        {% for post in original_thread %}
-            <div class="response-box">
-                {{ post }}
-                <br>
-                <small>{{ post|length }} characters</small><br>
-                <button class="copy-button" onclick="copyToClipboard(`{{ post | replace('`', '\\`') }}`)">📋 Copy</button>
-            </div>
-        {% endfor %}
-    {% endif %}
-
-    <a href="/threads" style="display: block; margin-top: 30px;">📁 View Saved Threads</a>
 </body>
 </html>
