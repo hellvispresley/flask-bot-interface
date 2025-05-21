@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RighteousRyght Bot Interface</title>
+    <title>Ryght Content Creator</title>
     <link rel="stylesheet" href="/static/styles.css">
     <style>
         body {
@@ -40,7 +40,7 @@
     </style>
 </head>
 <body>
-    <h1>🔥 RighteousRyght Bot</h1>
+    <h1>🧠 Ryght Content Creator</h1>
 
     <!-- Generate a new tweet -->
     <div>
@@ -57,6 +57,7 @@
             <option value="LeftyLoretta">LeftyLoretta (Progressive Satirist)</option>
         </select>
         <button class="btn" onclick="engageTweet()">💥 Engage</button>
+        <button class="btn" onclick="clearUrl()">🧼 Clear</button>
         <div id="engageResult"></div>
     </div>
 
@@ -70,17 +71,22 @@
     <script>
         function copyToClipboard(text, buttonElement) {
             navigator.clipboard.writeText(text).then(() => {
-                buttonElement.innerText = "✅ Copied!";
-                setTimeout(() => {
-                    buttonElement.innerText = "📋 Copy";
-                }, 1500);
-            }).catch(err => {
-                alert("❌ Failed to copy: " + err);
+                if (buttonElement) {
+                    buttonElement.innerText = "✅ Copied!";
+                    setTimeout(() => {
+                        buttonElement.innerText = "📋 Copy";
+                    }, 1500);
+                }
             });
         }
 
         function escapeForAttribute(str) {
             return str.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        }
+
+        function clearUrl() {
+            document.getElementById('tweetUrl').value = '';
+            document.getElementById('engageResult').innerHTML = '';
         }
 
         function generateTweet() {
@@ -95,10 +101,6 @@
                         <br><small>${length} characters</small><br>
                         <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
                     </div>`;
-            })
-            .catch(err => {
-                console.error("❌ Generate fetch error:", err);
-                alert("❌ Could not generate tweet.");
             });
         }
 
@@ -124,10 +126,6 @@
                         <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
                     </div>`;
                 }).join('');
-            })
-            .catch(err => {
-                console.error("❌ Engage fetch error:", err);
-                alert("❌ Could not fetch engagement.");
             });
         }
 
@@ -154,10 +152,6 @@
                             <button class="tweet-action" onclick="generateSimilar('${escapedText}')">🧠 Generate Similar</button>
                         </div>`;
                 }).join('');
-            })
-            .catch(err => {
-                console.error("❌ Trending fetch error:", err);
-                container.innerHTML = `<div class="response-box">❌ Failed to load trending tweets.</div>`;
             });
         }
 
