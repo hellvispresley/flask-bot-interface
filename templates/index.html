@@ -132,29 +132,33 @@
         }
 
         function loadTrending() {
-            const placeholderTweets = [
-                { text: "BREAKING: Huge development in the AI world today...", url: "https://twitter.com/example/1" },
-                { text: "People are losing it over this video 😳", url: "https://twitter.com/example/2" },
-                { text: "Elon just did WHAT with Twitter again?", url: "https://twitter.com/example/3" },
-                { text: "🔥 This thread is going viral fast. Here's why:", url: "https://twitter.com/example/4" },
-                { text: "Something major just dropped on the Supreme Court docket.", url: "https://twitter.com/example/5" },
-                { text: "Tucker just exposed everything in under 60 seconds.", url: "https://twitter.com/example/6" },
-                { text: "This chart explains everything. Seriously.", url: "https://twitter.com/example/7" },
-                { text: "How is this not front-page news??", url: "https://twitter.com/example/8" },
-                { text: "She called out the entire system in this one tweet 💥", url: "https://twitter.com/example/9" },
-                { text: "This is what they don't want you to know 👇", url: "https://twitter.com/example/10" }
-            ];
-
             const container = document.getElementById('trendingList');
-            container.innerHTML = placeholderTweets.map((tweet, index) => `
-                <div class="trending-card">
-                    <strong>#${index + 1}</strong><br>
-                    <p>${tweet.text}</p>
-                    <button class="tweet-action" onclick="window.open('${tweet.url}', '_blank')">🔗 Open Tweet</button>
-                    <button class="tweet-action" onclick="engageFromTrending('${tweet.url}')">💥 Engage</button>
-                    <button class="tweet-action" onclick="generateSimilar('${tweet.text}')">🧠 Generate Similar</button>
-                </div>
-            `).join('');
+            container.innerHTML = `<div class="response-box">⏳ Fetching live trending tweets...</div>`;
+
+            fetch('/api/trending')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.tweets || data.tweets.length === 0) {
+                    container.innerHTML = `<div class="response-box">❌ No trending tweets found.</div>`;
+                    return;
+                }
+
+                container.innerHTML = data.tweets.map((tweet, index) => {
+                    const escapedText = tweet.text.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                    return `
+                        <div class="trending-card">
+                            <strong>#${index + 1}</strong><br>
+                            <p>${tweet.text}</p>
+                            <button class="tweet-action" onclick="window.open('${tweet.url}', '_blank')">🔗 Open Tweet</button>
+                            <button class="tweet-action" onclick="engageFromTrending('${tweet.url}')">💥 Engage</button>
+                            <button class="tweet-action" onclick="generateSimilar('${escapedText}')">🧠 Generate Similar</button>
+                        </div>`;
+                }).join('');
+            })
+            .catch(err => {
+                console.error("❌ Trending fetch error:", err);
+                container.innerHTML = `<div class="response-box">❌ Failed to load trending tweets.</div>`;
+            });
         }
 
         function engageFromTrending(url) {
@@ -164,7 +168,6 @@
 
         function generateSimilar(text) {
             alert("🚧 Generate Similar functionality coming soon!\n\nSeed: " + text);
-            // In future: send this text to GPT with a persona prompt to create a new tweet
         }
     </script>
 </body>
