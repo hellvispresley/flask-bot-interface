@@ -17,7 +17,7 @@
             background-color: #2c2c2c;
             white-space: pre-wrap;
         }
-        .copy-button, .btn, .tweet-action {
+        .copy-button, .original-button, .btn {
             margin-top: 5px;
             margin-right: 5px;
             padding: 6px 12px;
@@ -42,13 +42,11 @@
 <body>
     <h1>🧠 Ryght Content Creator</h1>
 
-    <!-- Generate a new tweet -->
     <div>
         <button class="btn" onclick="generateTweet()">🧠 Generate New Tweet</button>
         <div id="generatedResult"></div>
     </div>
 
-    <!-- Engage with a tweet -->
     <div style="margin-top: 30px;">
         <input type="text" id="tweetUrl" placeholder="Paste tweet URL to engage">
         <select id="persona">
@@ -61,7 +59,6 @@
         <div id="engageResult"></div>
     </div>
 
-    <!-- Trending Tweets -->
     <div style="margin-top: 50px;">
         <h2>📈 Trending Tweets</h2>
         <button class="btn" onclick="loadTrending()">🔍 Load Trending Tweets</button>
@@ -91,17 +88,17 @@
 
         function generateTweet() {
             fetch('/api/generate', { method: 'POST' })
-            .then(res => res.json())
-            .then(data => {
-                const tweet = data.tweet || "❌ No tweet content received.";
-                const length = tweet.length;
-                document.getElementById('generatedResult').innerHTML =
-                    `<div class="response-box">
-                        ${tweet}
-                        <br><small>${length} characters</small><br>
-                        <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
-                    </div>`;
-            });
+                .then(res => res.json())
+                .then(data => {
+                    const tweet = data.tweet || "❌ No tweet content received.";
+                    const length = tweet.length;
+                    document.getElementById('generatedResult').innerHTML =
+                        `<div class="response-box">
+                            ${tweet}
+                            <br><small>${length} characters</small><br>
+                            <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
+                        </div>`;
+                });
         }
 
         function engageTweet() {
@@ -133,26 +130,34 @@
             const container = document.getElementById('trendingList');
             container.innerHTML = `<div class="response-box">⏳ Fetching live trending tweets...</div>`;
 
-            fetch('/api/trending')
-            .then(res => res.json())
-            .then(data => {
-                if (!data.tweets || data.tweets.length === 0) {
-                    container.innerHTML = `<div class="response-box">❌ No trending tweets found.</div>`;
-                    return;
-                }
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000); // 15s max
 
-                container.innerHTML = data.tweets.map((tweet, index) => {
-                    const escapedText = tweet.text.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-                    return `
-                        <div class="trending-card">
-                            <strong>#${index + 1}</strong><br>
-                            <p>${tweet.text}</p>
-                            <button class="tweet-action" onclick="window.open('${tweet.url}', '_blank')">🔗 Open Tweet</button>
-                            <button class="tweet-action" onclick="engageFromTrending('${tweet.url}')">💥 Engage</button>
-                            <button class="tweet-action" onclick="generateSimilar('${escapedText}')">🧠 Generate Similar</button>
-                        </div>`;
-                }).join('');
-            });
+            fetch('/api/trending', { signal: controller.signal })
+                .then(res => res.json())
+                .then(data => {
+                    clearTimeout(timeout);
+                    if (!data.tweets || data.tweets.length === 0) {
+                        container.innerHTML = `<div class="response-box">❌ No trending tweets found.</div>`;
+                        return;
+                    }
+
+                    container.innerHTML = data.tweets.map((tweet, index) => {
+                        const escapedText = tweet.text.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                        return `
+                            <div class="trending-card">
+                                <strong>#${index + 1}</strong><br>
+                                <p>${tweet.text}</p>
+                                <button class="btn" onclick="window.open('${tweet.url}', '_blank')">🔗 Open Tweet</button>
+                                <button class="btn" onclick="engageFromTrending('${tweet.url}')">💥 Engage</button>
+                                <button class="btn" onclick="generateSimilar('${escapedText}')">🧠 Generate Similar</button>
+                            </div>`;
+                    }).join('');
+                })
+                .catch(err => {
+                    clearTimeout(timeout);
+                    container.innerHTML = `<div class="response-box">❌ Request timed out or failed. Please try again.</div>`;
+                });
         }
 
         function engageFromTrending(url) {
@@ -161,31 +166,30 @@
         }
 
         function generateSimilar(text) {
-    const persona = document.getElementById('persona').value;
-    const container = document.getElementById('generatedResult');
-    container.innerHTML = `<div class="response-box">⏳ Generating similar tweet...</div>`;
+            const persona = document.getElementById('persona').value;
+            const container = document.getElementById('generatedResult');
+            container.innerHTML = `<div class="response-box">⏳ Generating similar tweet...</div>`;
 
-    fetch('/api/generate-similar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, persona })
-    })
-    .then(res => res.json())
-    .then(data => {
-        const tweet = data.tweet || "❌ No tweet generated.";
-        const length = tweet.length;
-        container.innerHTML = `
-            <div class="response-box">
-                ${tweet}
-                <br><small>${length} characters</small><br>
-                <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
-            </div>`;
-    })
-    .catch(err => {
-        console.error("❌ Generate Similar error:", err);
-        container.innerHTML = `<div class="response-box">❌ Error generating similar tweet.</div>`;
-    });
-}
+            fetch('/api/generate-similar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, persona })
+            })
+            .then(res => res.json())
+            .then(data => {
+                const tweet = data.tweet || "❌ No tweet generated.";
+                const length = tweet.length;
+                container.innerHTML = `
+                    <div class="response-box">
+                        ${tweet}
+                        <br><small>${length} characters</small><br>
+                        <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
+                    </div>`;
+            })
+            .catch(err => {
+                container.innerHTML = `<div class="response-box">❌ Error generating tweet. Please try again.</div>`;
+            });
+        }
     </script>
 </body>
 </html>
