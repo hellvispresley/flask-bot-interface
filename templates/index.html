@@ -71,11 +71,13 @@
             })
             .then(res => res.json())
             .then(data => {
+                const tweet = data.tweet || "❌ No tweet content received.";
+                const length = tweet.length;
                 document.getElementById('generatedResult').innerHTML =
                     `<div class="response-box">
-                        ${data.tweet}
-                        <br><small>${data.tweet.length} characters</small><br>
-                        <button class="copy-button" onclick="copyToClipboard(\`${data.tweet}\`)">📋 Copy</button>
+                        ${tweet}
+                        <br><small>${length} characters</small><br>
+                        <button class="copy-button" onclick="copyToClipboard(\`${tweet}\`)">📋 Copy</button>
                     </div>`;
             });
         }
@@ -91,11 +93,13 @@
             })
             .then(res => res.json())
             .then(data => {
+                const tweet = data.tweet || "❌ No tweet content received.";
+                const length = tweet.length;
                 document.getElementById('engageResult').innerHTML =
                     `<div class="response-box">
-                        ${data.tweet}
-                        <br><small>${data.tweet.length} characters</small><br>
-                        <button class="copy-button" onclick="copyToClipboard(\`${data.tweet}\`)">📋 Copy</button>
+                        ${tweet}
+                        <br><small>${length} characters</small><br>
+                        <button class="copy-button" onclick="copyToClipboard(\`${tweet}\`)">📋 Copy</button>
                     </div>`;
             });
         }
