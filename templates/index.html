@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Ryght Content Ryght Time</title>
+    <title>Ryght Content Ryght Tyme</title>
     <link rel="stylesheet" href="/static/styles.css">
     <style>
         body {
@@ -37,11 +37,12 @@
             margin-bottom: 12px;
             border-radius: 6px;
         }
-        #draftContainer {
-            margin-top: 40px;
+        #debugOutput {
+            white-space: pre-wrap;
+            background-color: #262626;
             padding: 15px;
-            border: 1px solid #444;
-            background-color: #2a2a2a;
+            margin-top: 15px;
+            border: 1px dashed #888;
         }
     </style>
 </head>
@@ -56,218 +57,119 @@
     <div style="margin-top: 30px;">
         <input type="text" id="tweetUrl" placeholder="Paste tweet URL to engage">
         <select id="persona">
-            <option value="RighteousRyght">RighteousRyght (Aggressive Conservative)</option>
-            <option value="CentristStan">CentristStan (Neutral and Factual)</option>
-            <option value="LeftyLoretta">LeftyLoretta (Progressive Satirist)</option>
+            <option value="RighteousRyght">RighteousRyght</option>
+            <option value="CentristStan">CentristStan</option>
+            <option value="LeftyLoretta">LeftyLoretta</option>
         </select>
         <button class="btn" onclick="engageTweet()">💥 Engage</button>
         <button class="btn" onclick="clearUrl()">🧼 Clear</button>
         <div id="engageResult"></div>
     </div>
 
-    <div style="margin-top: 50px;">
+    <div style="margin-top: 40px;">
         <h2>📈 Trending Tweets</h2>
-        <button class="btn" onclick="loadTrending()">🔍 Load Trending Tweets</button>
+        <button class="btn" onclick="loadTrending()">🔍 Load Trending</button>
+        <button class="btn" onclick="debugScrape()">🛠 Debug Trending Scrape</button>
         <div id="trendingList" style="margin-top: 20px;"></div>
-    </div>
-
-    <div id="draftContainer">
-        <h2>📄 Saved Drafts</h2>
-        <p>You can save up to 25 drafts. The oldest will be removed automatically.</p>
-        <button class="btn" onclick="loadDrafts()">🔄 Refresh</button>
-        <div id="draftList"></div>
+        <div id="debugOutput"></div>
     </div>
 
     <script>
-        function copyToClipboard(text, buttonElement) {
+        let trendingSource = "";
+
+        function copyToClipboard(text, btn) {
             navigator.clipboard.writeText(text).then(() => {
-                if (buttonElement) {
-                    buttonElement.innerText = "✅ Copied!";
-                    setTimeout(() => {
-                        buttonElement.innerText = "📋 Copy";
-                    }, 1500);
-                }
+                btn.innerText = "✅ Copied!";
+                setTimeout(() => btn.innerText = "📋 Copy", 1200);
             });
         }
 
-        function escapeForAttribute(str) {
-            return str.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-        }
-
         function clearUrl() {
-            document.getElementById('tweetUrl').value = '';
-            document.getElementById('engageResult').innerHTML = '';
+            document.getElementById("tweetUrl").value = "";
+            document.getElementById("engageResult").innerHTML = "";
         }
 
         function generateTweet() {
-            fetch('/api/generate', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    const tweet = data.tweet || "❌ No tweet content received.";
-                    const length = tweet.length;
-                    document.getElementById('generatedResult').innerHTML =
-                        `<div class="response-box">
-                            ${tweet}
-                            <br><small>${length} characters</small><br>
-                            <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
-                            <button class="btn" onclick="saveDraft('${escapeForAttribute(tweet)}')">💾 Save Draft</button>
-                        </div>`;
-                });
+            fetch("/api/generate", { method: "POST" })
+            .then(res => res.json())
+            .then(data => {
+                const tweet = data.tweet;
+                document.getElementById("generatedResult").innerHTML = `
+                    <div class="response-box">
+                        ${tweet}
+                        <br><small>${tweet.length} characters</small><br>
+                        <button class="copy-button" onclick="copyToClipboard('${tweet.replace(/'/g, "\\'")}', this)">📋 Copy</button>
+                    </div>
+                `;
+            });
         }
 
         function engageTweet() {
-            const url = document.getElementById('tweetUrl').value;
-            const persona = document.getElementById('persona').value;
-            document.getElementById('engageResult').innerHTML =
-                `<div class="response-box">⏳ Generating replies...</div>`;
+            const url = document.getElementById("tweetUrl").value;
+            const persona = document.getElementById("persona").value;
 
-            fetch('/api/engage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            fetch("/api/engage", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ url, persona })
             })
             .then(res => res.json())
             .then(data => {
                 const replies = data.replies || ["❌ No tweet content received."];
-                document.getElementById('engageResult').innerHTML = replies.map(tweet => {
-                    const length = tweet.length;
-                    return `<div class="response-box">
-                        ${tweet}
-                        <br><small>${length} characters</small><br>
-                        <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
-                        <button class="btn" onclick="saveDraft('${escapeForAttribute(tweet)}')">💾 Save Draft</button>
-                    </div>`;
-                }).join('');
+                document.getElementById("engageResult").innerHTML = replies.map(r => `
+                    <div class="response-box">
+                        ${r}
+                        <br><small>${r.length} characters</small><br>
+                        <button class="copy-button" onclick="copyToClipboard('${r.replace(/'/g, "\\'")}', this)">📋 Copy</button>
+                    </div>
+                `).join("");
             });
         }
 
         function loadTrending() {
-            const container = document.getElementById('trendingList');
-            container.innerHTML = `<div class="response-box">⏳ Fetching live trending tweets...</div>`;
+            const container = document.getElementById("trendingList");
+            container.innerHTML = "<div class='response-box'>Loading...</div>";
 
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 25000);
-
-            fetch('/api/trending', { signal: controller.signal })
-                .then(res => res.json())
-                .then(data => {
-                    clearTimeout(timeout);
-                    if (!data.tweets || data.tweets.length === 0) {
-                        container.innerHTML = `<div class="response-box">❌ No trending tweets found.</div>`;
-                        return;
-                    }
-                    container.innerHTML = data.tweets.map((tweet, index) => {
-                        const escapedText = tweet.text.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-                        return `
-                            <div class="trending-card">
-                                <strong>#${index + 1}</strong><br>
-                                <p>${tweet.text}</p>
-                                <button class="btn" onclick="window.open('${tweet.url}', '_blank')">🔗 Open Tweet</button>
-                                <button class="btn" onclick="engageFromTrending('${tweet.url}')">💥 Engage</button>
-                                <button class="btn" onclick="generateSimilar('${escapedText}')">🧠 Generate Similar</button>
-                                <button class="btn" onclick="saveDraft('${escapedText}')">💾 Save Draft</button>
-                            </div>`;
-                    }).join('');
-                })
-                .catch(err => {
-                    clearTimeout(timeout);
-                    container.innerHTML = `<div class="response-box">❌ Request timed out or failed. Please try again.</div>`;
-                });
-        }
-
-        function engageFromTrending(url) {
-            document.getElementById('tweetUrl').value = url;
-            engageTweet();
-        }
-
-        function generateSimilar(text) {
-            const persona = document.getElementById('persona').value;
-            const container = document.getElementById('generatedResult');
-            container.innerHTML = `<div class="response-box">⏳ Generating similar tweet...</div>`;
-
-            fetch('/api/generate-similar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, persona })
-            })
+            fetch("/api/trending")
             .then(res => res.json())
             .then(data => {
-                const tweet = data.tweet || "❌ No tweet generated.";
-                const length = tweet.length;
-                container.innerHTML = `
-                    <div class="response-box">
-                        ${tweet}
-                        <br><small>${length} characters</small><br>
-                        <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(tweet)}', this)">📋 Copy</button>
-                        <button class="btn" onclick="saveDraft('${escapeForAttribute(tweet)}')">💾 Save Draft</button>
-                    </div>`;
+                const tweets = data.tweets || [];
+                trendingSource = data.source || "🔥 Trending Tab";
+                if (tweets.length === 0) {
+                    container.innerHTML = "<div class='response-box'>❌ No trending tweets found.</div>";
+                    return;
+                }
+
+                container.innerHTML = tweets.map((tweet, i) => `
+                    <div class="trending-card">
+                        <strong>#${i + 1} ${trendingSource.includes("Fallback") ? "🪂 Fallback" : "🔥 Trending Tab"}</strong>
+                        <p>${tweet.text}</p>
+                        <button class="btn" onclick="window.open('${tweet.url}', '_blank')">🔗 Open</button>
+                        <button class="btn" onclick="document.getElementById('tweetUrl').value = '${tweet.url}'; engageTweet();">💥 Engage</button>
+                    </div>
+                `).join("");
             })
-            .catch(err => {
-                container.innerHTML = `<div class="response-box">❌ Error generating tweet. Please try again.</div>`;
+            .catch(() => {
+                container.innerHTML = "<div class='response-box'>❌ Request timed out or failed.</div>";
             });
         }
 
-        function saveDraft(text) {
-            fetch('/api/draft/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text })
-            })
+        function debugScrape() {
+            const output = document.getElementById("debugOutput");
+            output.innerHTML = "🔍 Checking Twitter trending tab...";
+            fetch("/api/debug-tweet-page")
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    loadDrafts();
+                    output.innerHTML = `✅ Found <strong>${data.articles_found}</strong> articles on the page.\n\n<pre>${data.html_preview}</pre>`;
                 } else {
-                    alert("❌ Failed to save draft.");
+                    output.innerHTML = `❌ Failed to scrape: ${data.error}`;
                 }
+            })
+            .catch(err => {
+                output.innerHTML = `❌ Request failed: ${err}`;
             });
         }
-
-        function loadDrafts() {
-            const container = document.getElementById('draftList');
-            container.innerHTML = `<div class="response-box">Loading drafts...</div>`;
-            fetch('/api/drafts')
-                .then(res => res.json())
-                .then(data => {
-                    const drafts = data.drafts || [];
-                    if (drafts.length === 0) {
-                        container.innerHTML = `<div class="response-box">No drafts saved yet.</div>`;
-                        return;
-                    }
-                    container.innerHTML = drafts.map((d, i) => `
-                        <div class="response-box">
-                            ${d.text}
-                            <br><small>${new Date(d.timestamp).toLocaleString()}</small><br>
-                            <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(d.text)}', this)">📋 Copy</button>
-                            <button class="btn" onclick="loadDraftIntoGenerator('${escapeForAttribute(d.text)}')">📝 Load</button>
-                            <button class="btn" onclick="deleteDraft(${i})">🗑️ Delete</button>
-                        </div>
-                    `).join('');
-                });
-        }
-
-        function loadDraftIntoGenerator(text) {
-            document.getElementById('generatedResult').innerHTML = `
-                <div class="response-box">
-                    ${text}
-                    <br><small>${text.length} characters</small><br>
-                    <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(text)}', this)">📋 Copy</button>
-                    <button class="btn" onclick="saveDraft('${escapeForAttribute(text)}')">💾 Save Draft</button>
-                </div>`;
-        }
-
-        function deleteDraft(index) {
-            fetch('/api/draft/delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ index })
-            })
-            .then(res => res.json())
-            .then(() => loadDrafts());
-        }
-
-        // Load on page load
-        window.onload = loadDrafts;
     </script>
 </body>
 </html>
