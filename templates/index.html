@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Ryght Content Creator</title>
+    <title>Ryght Content Ryght Time</title>
     <link rel="stylesheet" href="/static/styles.css">
     <style>
         body {
@@ -146,7 +146,7 @@
             container.innerHTML = `<div class="response-box">⏳ Fetching live trending tweets...</div>`;
 
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 15000);
+            const timeout = setTimeout(() => controller.abort(), 25000);
 
             fetch('/api/trending', { signal: controller.signal })
                 .then(res => res.json())
