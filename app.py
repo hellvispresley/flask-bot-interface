@@ -83,43 +83,70 @@ def generate_similar():
         return jsonify({"tweet": f"❌ GPT error: {e}"})
 
 
-@app.route("/api/trending", methods=["GET"])
-def fetch_trending():
+@app.route("/api/debug-tweet-page")
+def debug_tweet_page():
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage"
-                ]
-            )
+            browser = p.chromium.launch(headless=True, args=[
+                "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"
+            ])
             page = browser.new_page()
             page.goto("https://twitter.com/explore/tabs/trending", timeout=20000)
-            page.wait_for_selector("article", timeout=10000)
-
+            page.wait_for_timeout(5000)
+            html = page.content()
             tweets = page.query_selector_all("article")
-            results = []
+            article_count = len(tweets)
+            browser.close()
+            return jsonify({"success": True, "articles_found": article_count, "html_preview": html[:2000]})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
-            for tweet in tweets[:20]:
-                try:
-                    text = tweet.inner_text()
-                    url_node = tweet.query_selector("a[href*='/status/']")
-                    link = url_node.get_attribute("href") if url_node else None
-                    if text and link:
-                        results.append({
-                            "text": text.split("\n")[0][:280],
-                            "url": f"https://twitter.com{link}"
-                        })
-                except Exception as e:
-                    print("⚠️ Skipping tweet due to error:", e)
-                    continue
+@app.route("/api/trending", methods=["GET"])
+def fetch_trending():
+    def extract_tweets(page):
+        tweets = page.query_selector_all("article")
+        results = []
+        for tweet in tweets[:20]:
+            try:
+                text = tweet.inner_text()
+                url_node = tweet.query_selector("a[href*='/status/']")
+                link = url_node.get_attribute("href") if url_node else None
+                if text and link:
+                    results.append({
+                        "text": text.split("\n")[0][:280],
+                        "url": f"https://twitter.com{link}"
+                    })
+            except Exception as e:
+                print("⚠️ Error parsing tweet:", e)
+                continue
+        return results
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, args=[
+                "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"
+            ])
+            page = browser.new_page()
+            print("🔍 Attempting to load Twitter trending tab...")
+            page.goto("https://twitter.com/explore/tabs/trending", timeout=20000)
+            page.wait_for_timeout(3000)
+
+            if "/login" in page.url or "Log in to Twitter" in page.content():
+                print("🔒 Detected login prompt, falling back to @unusual_whales...")
+                page.goto("https://twitter.com/unusual_whales", timeout=20000)
+                page.wait_for_selector("article", timeout=10000)
+
+            tweets = extract_tweets(page)
+            if not tweets:
+                print("⚠️ No tweets found, falling back again...")
+                page.goto("https://twitter.com/unusual_whales", timeout=20000)
+                page.wait_for_selector("article", timeout=10000)
+                tweets = extract_tweets(page)
 
             browser.close()
-            return jsonify({"tweets": results[:10]})
+            return jsonify({"tweets": tweets[:10]})
     except Exception as e:
-        print("❌ Trending scrape failed:", e)
+        print("❌ Scraping failed:", e)
         return jsonify({"error": str(e)})
 
 def get_persona_prompt(persona):
